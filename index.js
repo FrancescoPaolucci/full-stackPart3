@@ -83,7 +83,7 @@ app.get("/api/persons/:id", (request, response, next) => {
     .catch((error) => next(error));
 });
 
-app.post("/api/persons", (request, response) => {
+app.post("/api/persons", (request, response, next) => {
   const body = request.body;
 
   if (body.name === undefined) {
@@ -95,9 +95,12 @@ app.post("/api/persons", (request, response) => {
     number: body.number,
   });
 
-  person.save().then((savedPerson) => {
-    response.json(savedPerson);
-  });
+  person
+    .save()
+    .then((savedPerson) => {
+      response.json(savedPerson);
+    })
+    .catch((error) => next(error));
 });
 
 app.delete("/api/persons/:id", (request, response, next) => {
@@ -105,18 +108,19 @@ app.delete("/api/persons/:id", (request, response, next) => {
     .then((person) => {
       response.status(204).end();
     })
-    .catch((error) => console.log(error));
+    .catch((error) => nexy(error));
 });
 
 app.put("/api/persons/:id", (request, response, next) => {
   const body = request.body;
+  const opts = { runValidators: true, new: true };
 
   const person = {
     name: body.name,
     number: body.number,
   };
 
-  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+  Person.findByIdAndUpdate(request.params.id, person, opts)
     .then((updatedPerson) => {
       response.json(updatedPerson);
     })
@@ -138,8 +142,11 @@ const errorHandler = (error, request, response, next) => {
 
   if (error.name === "CastError") {
     return response.status(400).send({ error: "malformatted id" });
-  } else if (error.name === "No Content") {
-    return response.status(400).send({ error: "Already deleted element" });
+  } else if (error.name === "ValidationError") {
+    return response.status(400).send({
+      error:
+        "Some minLength: validation Error Happened ! check for duplicates or  length of name and number",
+    });
   }
   next(error);
 };
