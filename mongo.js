@@ -11,7 +11,7 @@ const password = process.argv[2];
 const name1 = process.argv[3];
 const number1 = process.argv[4];
 
-const url = `mongodb+srv://fullstack:${password}@cluster0.zoptv.mongodb.net/interfaccia?retryWrites=true&w=majority`;
+const url = `mongodb+srv://fullstack:${password}@cluster0.zoptv.mongodb.net/persone?retryWrites=true&w=majority`;
 
 mongoose.connect(url);
 

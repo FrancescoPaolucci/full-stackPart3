@@ -3,7 +3,11 @@ const morgan = require("morgan");
 const logger = morgan("combined");
 const app = express();
 const cors = require("cors");
+require("dotenv").config();
+const Person = require("./models/person");
+
 app.use(express.static("build"));
+app.use(cors());
 app.use(express.json());
 morgan.token("person", (request, response) => {
   return JSON.stringify(request.body);
@@ -14,7 +18,8 @@ app.use(
     ":method :url :status :res[content-length] - :response-time ms :person"
   )
 );
-app.use(cors());
+
+/*
 let persons = [
   {
     id: 1,
@@ -41,13 +46,15 @@ const generateId = () => {
   const idUnico = Math.floor(Math.random() * 9999) + 1;
   return idUnico;
 };
+*/
 
 app.get("/", (request, response) => {
   response.send("<h1>hello world!</h1>");
 });
 app.get("/api/persons", (request, response) => {
-  response.json(persons);
-  console.log(generateId());
+  Person.find({}).then((person) => {
+    response.json(person);
+  });
 });
 
 app.get("/info", (request, response) => {
@@ -57,55 +64,84 @@ app.get("/info", (request, response) => {
   var time =
     today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
   var dateTime = date + " " + time;
-  response.send(
-    `Phone book has info for ${persons.length} people <h1> ${dateTime}</h1> `
-  );
+  Person.find({}).then((person) => {
+    response.send(
+      `Phone book has info for ${person.length}  people <h1> ${dateTime}</h1> `
+    );
+  });
 });
 
-app.get("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  const person = persons.find((person) => person.id === id);
-  if (person) {
-    response.json(person);
-  } else {
-    response.status(404).end();
-  }
+app.get("/api/persons/:id", (request, response, next) => {
+  Person.findById(request.params.id)
+    .then((person) => {
+      if (person) {
+        response.json(person);
+      } else {
+        response.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
 app.post("/api/persons", (request, response) => {
   const body = request.body;
-  const Names = persons.map((p) => p.name.toLowerCase());
-  const lowerName = body.name.toLowerCase();
-  if (!body.name) {
-    return response.status(400).json({
-      error: "name missing",
-    });
-  }
-  if (Names.indexOf(lowerName) !== -1) {
-    return response.status(400).json({
-      error: "name already exist",
-    });
+
+  if (body.name === undefined) {
+    return response.status(400).json({ error: "name missing" });
   }
 
+  const person = new Person({
+    name: body.name,
+    number: body.number,
+  });
+
+  person.save().then((savedPerson) => {
+    response.json(savedPerson);
+  });
+});
+
+app.delete("/api/persons/:id", (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then((person) => {
+      response.status(204).end();
+    })
+    .catch((error) => console.log(error));
+});
+
+app.put("/api/persons/:id", (request, response, next) => {
+  const body = request.body;
+
   const person = {
-    id: generateId(),
     name: body.name,
     number: body.number,
   };
 
-  persons = persons.concat(person);
-  response.json(person);
-  console.log(person);
-});
-
-app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  persons = persons.filter((p) => p.id !== id);
-
-  response.status(204).end();
+  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+    .then((updatedPerson) => {
+      response.json(updatedPerson);
+    })
+    .catch((error) => next(error));
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+const unknownEndpoint = (request, response) => {
+  response.status(404).send({ error: "unknown endpoint" });
+};
+app.use(unknownEndpoint);
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return response.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "No Content") {
+    return response.status(400).send({ error: "Already deleted element" });
+  }
+  next(error);
+};
+
+app.use(errorHandler);
