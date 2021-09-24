@@ -1,1 +1,1 @@
-https://boiling-stream-62822.herokuapp.com/api/persons
+https://boiling-stream-62822.herokuapp.com/
